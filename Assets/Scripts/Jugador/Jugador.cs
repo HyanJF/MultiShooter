@@ -2,7 +2,6 @@ using UnityEngine;
 using Mirror;
 using UnityEngine.InputSystem;
 using TMPro;
-using Unity.VisualScripting;
 using System.Collections.Generic;
 
 public class Jugador : NetworkBehaviour
@@ -15,7 +14,7 @@ public class Jugador : NetworkBehaviour
     private Vector3 _moveDirection = new Vector3();
     public float moveSpeed = 10;
     public float speedLimit = 10;
-    
+
     [Header("Gravedad")]
     public float gravityNormal = 50f;
     public float gravityJump = 9.81f;
@@ -32,6 +31,8 @@ public class Jugador : NetworkBehaviour
 
     [Header("Armas")]
     public Transform transformCannon;
+    [SyncVar(hook = nameof(OnKillChanged))]
+    private int kill = 0;
 
     [Header("Hats")]
     public Transform hatAnchor;
@@ -52,8 +53,13 @@ public class Jugador : NetworkBehaviour
 
     [Header("Nametag")]
     public TextMeshPro nametagObject;
-    [SyncVar(hook = nameof(NameChanged))] 
+    [SyncVar(hook = nameof(NameChanged))]
     private string username;
+
+    [Header("Team")]
+
+    [SyncVar(hook = nameof(OnChangeTeam))]
+    private Teams myTeam = Teams.None;
 
     #endregion
     #region Unity
@@ -63,10 +69,10 @@ public class Jugador : NetworkBehaviour
         _rb.useGravity = false;
         maxHp = hp;
     }
-    
+
     void FixedUpdate()
     {
-        if(!isLocalPlayer)return;
+        if (!isLocalPlayer) return;
         Vector3 flat = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
         Quaternion orientation = Quaternion.LookRotation(flat);
         Vector3 worldMoveDirection = orientation * _moveDirection;
@@ -93,7 +99,7 @@ public class Jugador : NetworkBehaviour
         _pitch += _camInput.y * camSpeed * Time.deltaTime;
 
         _pitch = _pitch > maxPitch ? maxPitch : _pitch < (-maxPitch) ? -maxPitch : _pitch;
-        transform.eulerAngles = new Vector3(0, _yaw,0);
+        transform.eulerAngles = new Vector3(0, _yaw, 0);
         transformCam.eulerAngles = new Vector3(-_pitch, transformCam.rotation.eulerAngles.y, transformCam.rotation.eulerAngles.z);
     }
     #endregion
@@ -105,23 +111,32 @@ public class Jugador : NetworkBehaviour
         {
             if (hit.collider.gameObject.TryGetComponent<Jugador>(out Jugador elGolpeado) == true)
             {
-                Debug.Log("Me p*te al: " + elGolpeado.gameObject.name);
-                elGolpeado.TakeDamage(1);
+                if (elGolpeado.TakeDamage(1, myTeam))
+                {
+                    kill ++;
+                }
             }
         }
+    }
+
+    private void OnKillChanged(int oldKills, int newKills)
+    {
+        Debug.Log("ETC... kill " + kill);
     }
     #endregion
     #region HP
     [Server]
-    public void TakeDamage(int amount)
+    public bool TakeDamage(int amount, Teams elTeamo)
     {
-        if(hp <= 0){ hp = 0; return;}
+        if (hp <= 0 || elTeamo == myTeam) { hp = 0; return false; }
 
         hp -= amount;
-        if(hp <= 0)
+        if (hp <= 0)
         {
             KillPlayer();
+            return true;
         }
+        return false;
     }
     private void HealthChanged(int oldHealth, int newHealth)
     {
@@ -141,7 +156,7 @@ public class Jugador : NetworkBehaviour
             transform.localScale = new Vector3(1, 0.3f, 1);
             transformCam.gameObject.SetActive(false);
             gameObject.GetComponent<PlayerInput>().enabled = false;
-            healthBar.gameObject.SetActive(false);  
+            healthBar.gameObject.SetActive(false);
             if (!isLocalPlayer) return;
             Invoke("CommandRespawn", respawnTime);
         }
@@ -150,7 +165,7 @@ public class Jugador : NetworkBehaviour
             transform.localScale = Vector3.one;
             healthBar.gameObject.SetActive(true);
             transform.position = ShooterNetworkManager.singleton.GetStartPosition().position;
-            
+
             if (!isLocalPlayer) return;
             transformCam.gameObject.SetActive(true);
             gameObject.GetComponent<PlayerInput>().enabled = true;
@@ -181,14 +196,14 @@ public class Jugador : NetworkBehaviour
 
         CommandShoot(transformCannon.position, direccion);
     }
-    
+
     public void SetMovement(InputAction.CallbackContext context)
     {
-        if(!isLocalPlayer)return;
+        if (!isLocalPlayer) return;
         Debug.Log("Moving");
         var dir = context.ReadValue<Vector2>().normalized;
         _moveDirection = new Vector3(dir.x, 0, dir.y);
-        
+
     }
 
     public void SetLookDirection(InputAction.CallbackContext context)
@@ -208,7 +223,7 @@ public class Jugador : NetworkBehaviour
         _usernamePanel = GameObject.FindGameObjectWithTag("Username").GetComponent<InfoJugador>();
         CommandChanceName(_usernamePanel.PideUsuario());
         _usernamePanel.gameObject.SetActive(false);
-        
+
     }
     public override void OnStartAuthority()
     {
@@ -219,10 +234,16 @@ public class Jugador : NetworkBehaviour
         transformCam.gameObject.SetActive(true);
         nametagObject.gameObject.SetActive(false);
         healthBar.gameObject.SetActive(false);
-        hats[currentHatIndex].SetActive(false);
     }
     #endregion
-
+    #region Mirror
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        Debug.Log("Ya jale wey");
+        CommandSetTeam();
+    }
+    #endregion
     [Command]
     private void CommandChanceName(string maiName)
     {
@@ -264,5 +285,22 @@ public class Jugador : NetworkBehaviour
         }
 
         currentHatIndex = index;
+    }
+
+    [Command]
+    private void CommandSetTeam()
+    {
+        myTeam = TeamManager.singleton.GetBalanceTeam();
+        TeamManager.singleton.RegisterPlayer(this, myTeam);
+    }
+
+    private void OnChangeTeam(Teams oldTeam, Teams newTeam)
+    {
+        SetLook(newTeam);
+    }
+
+    private void SetLook(Teams elTeamo)
+    {
+        Debug.Log("Soy " + elTeamo.ToString() + " gurl!");
     }
 }
