@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
-using System;
+using System.Linq;
 
 /*
 	Documentation: https://mirror-networking.gitbook.io/docs/guides/networkbehaviour
@@ -30,5 +30,13 @@ public class ScoreManager : NetworkBehaviour
     public void RegisterPlayer(Jugador elPlayer)
     {
         players.Add(elPlayer);
+    }
+
+    public List<(string name, int kills)> GetSortedScore()
+    {
+        return players
+            .OrderByDescending(p => p.kill)
+            .Select(p => (p.name, p.kill))
+            .ToList();
     }
 }

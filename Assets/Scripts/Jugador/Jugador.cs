@@ -32,7 +32,7 @@ public class Jugador : NetworkBehaviour
     [Header("Armas")]
     public Transform transformCannon;
     [SyncVar(hook = nameof(OnKillChanged))]
-    private int kill = 0;
+    public int kill = 0;
 
     [Header("Hats")]
     public Transform hatAnchor;
@@ -223,6 +223,7 @@ public class Jugador : NetworkBehaviour
         _usernamePanel = GameObject.FindGameObjectWithTag("Username").GetComponent<InfoJugador>();
         CommandChanceName(_usernamePanel.PideUsuario());
         _usernamePanel.gameObject.SetActive(false);
+        CommandRegisterPlayer();
 
     }
     public override void OnStartAuthority()
@@ -249,6 +250,7 @@ public class Jugador : NetworkBehaviour
     {
         username = maiName;
     }
+
     private void NameChanged(string oldName, string newName)
     {
         nametagObject.text = newName;
@@ -302,5 +304,11 @@ public class Jugador : NetworkBehaviour
     private void SetLook(Teams elTeamo)
     {
         Debug.Log("Soy " + elTeamo.ToString() + " gurl!");
+    }
+
+    [Command]
+    private void CommandRegisterPlayer()
+    {
+        ScoreManager.singleton.RegisterPlayer(this);
     }
 }
