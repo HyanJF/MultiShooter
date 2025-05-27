@@ -61,6 +61,9 @@ public class Jugador : NetworkBehaviour
     [SyncVar(hook = nameof(OnChangeTeam))]
     private Teams myTeam = Teams.None;
 
+    [Header("UI")]
+    public GameObject uiPanel;
+
     #endregion
     #region Unity
     void Start()
@@ -206,6 +209,39 @@ public class Jugador : NetworkBehaviour
 
     }
 
+    public void ShowKills(InputAction.CallbackContext context)
+    {
+        if (!isLocalPlayer) return;
+        if (context.started)
+        {
+            Debug.Log("Started");
+            uiPanel.SetActive(true);
+            CommandGetKills();
+        }
+        else if (context.canceled)
+        {
+            uiPanel.SetActive(false);
+            Debug.Log("Canceled");
+        }
+    }
+
+    [Command]
+    private void CommandGetKills()
+    {
+        string content = "";
+        var info = ScoreManager.singleton.GetSortedScore();
+        foreach (var item in info)
+        {
+            content = content + "\u2022" + item.name + " -- " + item.kills.ToString() + "<br>";
+        }
+        TargetShowKills(content);
+    }
+    [TargetRpc]
+    private void TargetShowKills(string infoClear)
+    {
+        uiPanel.GetComponent<UIManager>().ShowKills(infoClear);
+    }
+
     public void SetLookDirection(InputAction.CallbackContext context)
     {
         //_camInput = context.ReadValue<Vector2>();
@@ -224,6 +260,7 @@ public class Jugador : NetworkBehaviour
         CommandChanceName(_usernamePanel.PideUsuario());
         _usernamePanel.gameObject.SetActive(false);
         CommandRegisterPlayer();
+        uiPanel = FindFirstObjectByType<UIManager>(FindObjectsInactive.Include).gameObject;
 
     }
     public override void OnStartAuthority()
@@ -270,6 +307,13 @@ public class Jugador : NetworkBehaviour
         currentHatIndex = index;
     }
 
+    [Command]
+    private void CommandRegisterPanel()
+    {
+
+    }
+
+    [Command]
     private void OnHatIndexChanged(int oldIndex, int newIndex)
     {
         if (isLocalPlayer) return;

@@ -1,16 +1,24 @@
+using NUnit.Framework;
 using UnityEngine;
+using System.Collections.Generic;
+using TMPro;
+using Unity.VisualScripting;
 
 public class UIManager : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public const string maiBreak = "<br>";
+    public const string bulletPoint = "\u2022";
+
+    public static UIManager singleton;
+
+    public TextMeshProUGUI killText;
+
+    private void Awake() => singleton = this;
+
+    public void ShowKills(string info)
     {
         
+        killText.text = info;
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
 }
